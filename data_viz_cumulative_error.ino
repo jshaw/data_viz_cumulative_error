@@ -15,6 +15,19 @@ unsigned long pingTimer;     // Holds the next ping time.
 
 boolean isRunning = false;
 
+const int buttonPin = 2;
+const int ledPin =  13;
+
+// the current state of the output pin
+int ledState = LOW;         
+// the current reading from the input pin
+int buttonState;             
+// the previous reading from the input pin
+int lastButtonState = HIGH;   
+
+unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
+unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
+
 class Sweeper
 {
   Servo servo;              // the servo
@@ -132,6 +145,11 @@ void setup() {
   Serial.begin(115200); 
   pingTimer = millis(); // Start now.
 
+  // initialize the LED pin as an output:
+  pinMode(ledPin, OUTPUT);
+  // initialize the pushbutton pin as an input:
+  pinMode(buttonPin, INPUT);
+
   sweeper.Attach(9);
 
 }
@@ -143,18 +161,56 @@ void loop() {
     sonar.ping_timer(echoCheck); // Send out the ping, calls "echoCheck" function every 24uS where you can check the ping status.
   }
 
+  int reading = digitalRead(buttonPin);
+
+  if (reading != lastButtonState) {
+    // reset the debouncing timer
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    // whatever the reading is at, it's been there for longer
+    // than the debounce delay, so take it as the actual current state:
+
+    // if the button state has changed:
+    if (reading != buttonState) {
+      buttonState = reading;
+
+      // only toggle the LED if the new button state is HIGH
+      if (buttonState == HIGH) {
+        ledState = !ledState;
+        isRunning = !isRunning;
+      }
+    }
+  }
+
+  // set the LED:
+  digitalWrite(ledPin, ledState);
+
+  // save the reading.  Next time through the loop,
+  // it'll be the lastButtonState:
+  lastButtonState = reading;
+
+//  if (buttonState == HIGH) {
+//    // turn LED on:
+//    digitalWrite(ledPin, HIGH);
+//  } else {
+//    // turn LED off:
+//    digitalWrite(ledPin, LOW);
+//  }
+
   if(isRunning == true){
     // update
     if(sweeper.isAttached() == true){
       sweeper.Update();
     } else {
-      sweeper.Attach();
+      sweeper.Attach(9);
       sweeper.Update();  
     }
   } else {
     // check to make make sure the server is attached before detaching
     if(sweeper.isAttached() == true){
-      sweeper.Detatch();  
+      sweeper.Detach();  
     }
   }
 }
