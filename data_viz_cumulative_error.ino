@@ -92,8 +92,8 @@ public:
           sweepString.remove(char_index);
         }
 
-        Serial.println("");
         if(printStringTitle == true){
+          Serial.println("");
           Serial.print("sweepString: ");
         }
         Serial.println(sweepString);
