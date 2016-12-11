@@ -2,25 +2,19 @@
 #include <Servo.h>
 #include <Array.h>
 
-#define TRIGGER_PIN   12 // Arduino pin tied to trigger pin on ping sensor.
-#define ECHO_PIN      11 // Arduino pin tied to echo pin on ping sensor.
+#define TRIGGER_PIN   11 // Arduino pin tied to trigger pin on ping sensor.
+#define ECHO_PIN      12 // Arduino pin tied to echo pin on ping sensor.
 #define MAX_DISTANCE 400 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
 Servo myservo;  // create servo object to control a servo
 
 unsigned int cm; 
-unsigned int pingSpeed = 50; // How frequently are we going to send out a ping (in milliseconds). 50ms would be 20 times a second.
+unsigned int pingSpeed = 33; // How frequently are we going to send out a ping (in milliseconds). 50ms would be 20 times a second.
 unsigned long pingTimer;     // Holds the next ping time.
 
 boolean isRunning = false;
-
 const int buttonPin = 2;
-const int ledPin =  13;
-
-// the current state of the output pin
-int ledState = LOW;         
-// the current reading from the input pin
 int buttonState;             
 // the previous reading from the input pin
 int lastButtonState = HIGH;   
@@ -70,6 +64,12 @@ public:
     servo.detach();
   }
 
+  void SetPos(int startPosition)
+  {
+    pos = startPosition;
+    servo.write(pos);
+  }
+
   int isAttached()
   {
     return servo.attached();
@@ -103,14 +103,25 @@ public:
 
   void StoreData(int currentDistance)
   {
-    String tmp = (String)id;
-    tmp.concat(":");
-    tmp.concat((String)pos);
-    tmp.concat(":");
-    tmp.concat((String)currentDistance);
-    
-    sweepString.concat(tmp);
-    sweepString.concat("/");
+    if(printStringTitle == true){
+      if(String(currentDistance).length() > 0){
+        Serial.print("currentDistance: ");
+        Serial.print((String)currentDistance);
+        Serial.print(" ||||");
+        Serial.println(" ");
+      }
+    }
+
+    if(String(currentDistance).length() > 0){
+      String tmp = String(id);
+      tmp.concat(":");
+      tmp.concat(String(pos));
+      tmp.concat(":");
+      tmp.concat(String(currentDistance));
+      
+      sweepString.concat(tmp);
+      sweepString.concat("/");
+    }
   }
   
   void Update()
@@ -131,6 +142,8 @@ public:
         // send data through serial here
         SendBatchData();
         // reverse direction
+        Detach();
+        Attach(9);
         increment = -increment;
       }
     }
@@ -138,19 +151,18 @@ public:
 };
 
 // Init the sweeper
-Sweeper sweeper(0, 20, sonar, 0);
+Sweeper sweeper(0, 50, sonar, 0);
 
 void setup() {
   // Open serial monitor at 115200 baud to see ping results.
   Serial.begin(115200); 
   pingTimer = millis(); // Start now.
 
-  // initialize the LED pin as an output:
-  pinMode(ledPin, OUTPUT);
   // initialize the pushbutton pin as an input:
   pinMode(buttonPin, INPUT);
 
   sweeper.Attach(9);
+  sweeper.SetPos(90);
 
 }
 
@@ -178,26 +190,14 @@ void loop() {
 
       // only toggle the LED if the new button state is HIGH
       if (buttonState == HIGH) {
-        ledState = !ledState;
         isRunning = !isRunning;
       }
     }
   }
 
-  // set the LED:
-  digitalWrite(ledPin, ledState);
-
   // save the reading.  Next time through the loop,
   // it'll be the lastButtonState:
   lastButtonState = reading;
-
-//  if (buttonState == HIGH) {
-//    // turn LED on:
-//    digitalWrite(ledPin, HIGH);
-//  } else {
-//    // turn LED off:
-//    digitalWrite(ledPin, LOW);
-//  }
 
   if(isRunning == true){
     // update
@@ -225,7 +225,11 @@ void echoCheck() {
     // Serial.print(sonar.ping_result / US_ROUNDTRIP_CM); 
     // Serial.println("cm");
 
-    cm = sonar.ping_result / US_ROUNDTRIP_CM;
-    sweeper.SetDistance(cm);
+    // only store data if the robot is running
+    // don't store if not moving / static
+    if(isRunning == true){
+      cm = sonar.ping_result / US_ROUNDTRIP_CM;
+      sweeper.SetDistance(cm);
+    }
   }
 }
